@@ -13,11 +13,29 @@ from PIL import Image
 from app.utils.image_utils import validate_image, ImageValidationError
 
 
-def make_fake_image_bytes(format="JPEG") -> bytes:
+def make_fake_image_bytes(format="JPEG", **save_kwargs) -> bytes:
     """Helper: create a real in-memory image as bytes."""
     img = Image.new("RGB", (100, 200), color=(255, 255, 255))
     buf = BytesIO()
-    img.save(buf, format=format)
+    img.save(buf, format=format, **save_kwargs)
+    return buf.getvalue()
+
+
+def make_animated_gif_bytes() -> bytes:
+    """Helper: create a small animated GIF as bytes."""
+    frames = [
+        Image.new("RGB", (64, 64), color=(255, 255, 255)),
+        Image.new("RGB", (64, 64), color=(200, 200, 200)),
+    ]
+    buf = BytesIO()
+    frames[0].save(
+        buf,
+        format="GIF",
+        save_all=True,
+        append_images=frames[1:],
+        loop=0,
+        duration=100,
+    )
     return buf.getvalue()
 
 
@@ -33,10 +51,10 @@ def test_valid_png_passes():
     validate_image(img_bytes, "bride_photo.png")  # Should not raise
 
 
-def test_invalid_extension_raises():
-    """A GIF file should raise ImageValidationError."""
-    img_bytes = make_fake_image_bytes("JPEG")
-    with pytest.raises(ImageValidationError, match="Invalid file type"):
+def test_animated_gif_raises():
+    """Animated GIFs should raise ImageValidationError."""
+    img_bytes = make_animated_gif_bytes()
+    with pytest.raises(ImageValidationError, match="Animated images are not supported"):
         validate_image(img_bytes, "photo.gif")
 
 

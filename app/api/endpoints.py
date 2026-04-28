@@ -44,7 +44,13 @@ async def tryon_endpoint(
     garment_image_url : str        = Form(...,  description="URL of selected wedding dress from dress library"),
     dress_style       : str        = Form("default", description="Dress style: ball_gown | a_line | mermaid | sheath | lace | off_shoulder | default"),
     lighting          : str        = Form("default", description="Lighting: studio | outdoor | church | default"),
-    human_image       : UploadFile = File(...,  description="Bride's full-body photo (JPG or PNG, max 5MB)"),
+    human_image       : UploadFile = File(
+        ...,
+        description=(
+            "Bride's full-body photo (JPG, PNG, WEBP, BMP, TIFF, GIF; "
+            "no animations, max 5MB)"
+        )
+    ),
 ):
     """
     Run AI virtual bridal dress try-on.
@@ -76,6 +82,8 @@ async def tryon_endpoint(
     # fal.ai needs a URL — we upload the bytes and get a temporary URL back
     try:
         human_image_url = upload_image_to_fal(file_bytes, filename)
+    except ImageValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=500,

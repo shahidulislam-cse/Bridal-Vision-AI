@@ -26,8 +26,8 @@ import os
 import time
 import fal_client
 from app.core.config import settings
+from app.core.prompts import build_tryon_prompt
 from app.utils.session_utils import can_tryon, increment_tryon_count, get_remaining_tryons
-from app.utils.image_utils import validate_image, ImageValidationError
 
 
 # ─────────────────────────────────────────────
@@ -37,32 +37,15 @@ os.environ["FAL_KEY"] = settings.FAL_KEY
 
 
 # ─────────────────────────────────────────────
-# Prompt Engineering for Bridal Try-On
-# ─────────────────────────────────────────────
-
-BRIDAL_PROMPT = (
-    "A beautiful bride wearing the selected wedding dress. "
-    "Realistic body fitting with natural pose adaptation. "
-    "Soft bridal lighting, elegant shadow rendering, "
-    "smooth fabric texture, full-body view, high resolution, "
-    "photorealistic, bridal boutique style."
-)
-
-NEGATIVE_PROMPT = (
-    "blurry, distorted body, unrealistic proportions, "
-    "cartoon, painting, bad anatomy, wrong dress color, "
-    "artifacts, watermark, low quality."
-)
-
-
-# ─────────────────────────────────────────────
 # Core Functions
 # ─────────────────────────────────────────────
 
 def run_tryon(
     human_image_url: str,
     garment_image_url: str,
-    session_id: str
+    session_id: str,
+    dress_style: str = "default",
+    lighting: str = "default"
 ) -> dict:
     """
     Run the AI virtual dress try-on using fal.ai IDM-VTON model.
@@ -77,14 +60,15 @@ def run_tryon(
         human_image_url   (str): URL of the bride's full-body photo.
         garment_image_url (str): URL of the selected wedding dress image.
         session_id        (str): Session ID from backend (used for limit tracking).
+        dress_style       (str): Optional dress style to improve prompt quality.
+        lighting          (str): Optional lighting scene to improve prompt quality.
 
     Returns:
         dict: {
-            "success"        : bool,
-            "result_image_url": str | None,
-            "tries_used"     : int,
-            "tries_remaining": int,
-            "message"        : str
+            "success"         : bool,
+            "result_image_url" : str | None,
+            "tries_remaining" : int,
+            "message"         : str
         }
     """
 
@@ -101,8 +85,23 @@ def run_tryon(
             )
         )
 
+    if not settings.FAL_KEY:
+        return format_response(
+            success=False,
+            result_url=None,
+            session_id=session_id,
+            message="FAL_KEY is missing. Set it in the environment before running."
+        )
+
+    prompts = build_tryon_prompt(dress_style=dress_style, lighting=lighting)
+
     # ── Step 2: Call fal.ai (with one retry on failure) ──────────
-    fal_result = _call_fal_with_retry(human_image_url, garment_image_url)
+    fal_result = _call_fal_with_retry(
+        human_image_url,
+        garment_image_url,
+        prompt=prompts["positive"],
+        negative_prompt=prompts["negative"]
+    )
 
     if not fal_result["success"]:
         return format_response(
@@ -126,6 +125,8 @@ def run_tryon(
 def _call_fal_with_retry(
     human_image_url: str,
     garment_image_url: str,
+    prompt: str,
+    negative_prompt: str,
     retries: int = 1
 ) -> dict:
     """
@@ -134,6 +135,8 @@ def _call_fal_with_retry(
     Args:
         human_image_url   (str): URL of the bride's photo.
         garment_image_url (str): URL of the wedding dress image.
+        prompt            (str): Positive prompt for IDM-VTON.
+        negative_prompt   (str): Negative prompt for IDM-VTON.
         retries           (int): Number of retry attempts (default: 1).
 
     Returns:
@@ -151,8 +154,8 @@ def _call_fal_with_retry(
                 arguments={
                     "human_image_url"  : human_image_url,
                     "garment_image_url": garment_image_url,
-                    "prompt"           : BRIDAL_PROMPT,
-                    "negative_prompt"  : NEGATIVE_PROMPT,
+                    "prompt"           : prompt,
+                    "negative_prompt"  : negative_prompt,
                     "num_inference_steps": 30,
                     "guidance_scale"   : 2.0,
                 }

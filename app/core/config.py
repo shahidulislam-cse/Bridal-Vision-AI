@@ -27,7 +27,14 @@ class Settings:
 
     # ── Image Validation ─────────────────────────────────────────
     MAX_IMAGE_SIZE_MB: int = 5              # Maximum upload size (MB)
-    ALLOWED_EXTENSIONS: list = ["jpg", "jpeg", "png"]
+    ALLOWED_IMAGE_FORMATS: list[str] = [
+        "JPEG",
+        "PNG",
+        "WEBP",
+        "BMP",
+        "TIFF",
+        "GIF",
+    ]
 
     # ── Session Limits ───────────────────────────────────────────
     MAX_TRYON_PER_SESSION: int = 3          # Brides get 3 try-ons max
