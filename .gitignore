@@ -1,0 +1,44 @@
+# BridalVision AI — .gitignore
+
+# ── Environment & Secrets ─────────────────────────
+.env
+
+
+
+# ── Python ───────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ── Virtual Environment ───────────────────────────
+venv/
+env/
+.venv/
+
+# ── Testing & Coverage ────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── IDE ───────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+
+# ── OS ───────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Logs ─────────────────────────────────────────
+*.log
+logs/
+
+# ── Uploaded Images (GDPR — never commit user data)
+uploads/
+temp_images/
