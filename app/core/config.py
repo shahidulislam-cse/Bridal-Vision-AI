@@ -34,6 +34,8 @@ class Settings:
         "BMP",
         "TIFF",
         "GIF",
+        "HEIF",
+        "HEIC",
     ]
 
     # ── Session Limits ───────────────────────────────────────────

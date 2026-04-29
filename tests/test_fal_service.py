@@ -12,6 +12,7 @@ import pytest
 from unittest.mock import patch
 from app.services.fal_service import run_tryon, format_response
 from app.utils.session_utils import reset_session
+from app.core import config as app_config
 
 
 SESSION_ID = "test-session-001"
@@ -22,10 +23,16 @@ MOCK_RESULT_URL = "https://fal.ai/results/mock-image.jpg"
 
 @pytest.fixture(autouse=True)
 def clear_session():
-    """Reset session before each test."""
+    """
+    Reset session and inject a fake FAL_KEY before each test so that
+    the early-exit guard in run_tryon() doesn't block our mocked calls.
+    """
+    original_key = app_config.settings.FAL_KEY
+    app_config.settings.FAL_KEY = "test-fake-key-12345"
     reset_session(SESSION_ID)
     yield
     reset_session(SESSION_ID)
+    app_config.settings.FAL_KEY = original_key
 
 
 def test_session_limit_blocks_after_3_tryons():
@@ -70,3 +77,15 @@ def test_format_response_structure():
     assert "result_image_url" in response
     assert "tries_remaining" in response
     assert "message" in response
+
+
+def test_missing_fal_key_returns_error():
+    """If FAL_KEY is empty, run_tryon should return a clear error (no crash)."""
+    original_key = app_config.settings.FAL_KEY
+    app_config.settings.FAL_KEY = ""  # Simulate missing key
+    try:
+        result = run_tryon(HUMAN_URL, DRESS_URL, SESSION_ID)
+        assert result["success"] is False
+        assert "FAL_KEY" in result["message"]
+    finally:
+        app_config.settings.FAL_KEY = original_key

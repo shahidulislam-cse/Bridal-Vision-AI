@@ -14,12 +14,15 @@ Company : Betopia Group / Join Venture AI, Dhaka, Bangladesh
 """
 
 from app.core.config import settings
+import threading
 
 # ─────────────────────────────────────────────
 # In-memory session store
 # Format: { "session_id_string": try_on_count }
+# NOTE: For multi-worker deployments, replace with Redis.
 # ─────────────────────────────────────────────
 _session_store: dict[str, int] = {}
+_lock = threading.Lock()  # Thread-safe for single-worker uvicorn
 
 
 def get_tryon_count(session_id: str) -> int:
@@ -45,13 +48,15 @@ def can_tryon(session_id: str) -> bool:
     Returns:
         bool: True if try-on is allowed, False if limit is reached.
     """
-    count = get_tryon_count(session_id)
+    with _lock:
+        count = _session_store.get(session_id, 0)
     return count < settings.MAX_TRYON_PER_SESSION
 
 
 def increment_tryon_count(session_id: str) -> int:
     """
     Increment the try-on count for a session after a successful try-on.
+    Thread-safe via lock.
 
     Args:
         session_id (str): Unique session ID provided by the backend.
@@ -59,9 +64,10 @@ def increment_tryon_count(session_id: str) -> int:
     Returns:
         int: Updated try-on count after incrementing.
     """
-    current = get_tryon_count(session_id)
-    _session_store[session_id] = current + 1
-    return _session_store[session_id]
+    with _lock:
+        current = _session_store.get(session_id, 0)
+        _session_store[session_id] = current + 1
+        return _session_store[session_id]
 
 
 def get_remaining_tryons(session_id: str) -> int:

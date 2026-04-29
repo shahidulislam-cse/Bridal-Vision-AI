@@ -14,6 +14,7 @@ Author  : Shahidul Islam, Jr. AI Engineer
 Company : Betopia Group / Join Venture AI, Dhaka, Bangladesh
 """
 
+import asyncio
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from app.services.fal_service import run_tryon
 from app.utils.image_utils import validate_image, ImageValidationError, upload_image_to_fal
@@ -79,9 +80,14 @@ async def tryon_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
     # ── Step 3: Upload image to fal.ai storage → get URL ─────────
-    # fal.ai needs a URL — we upload the bytes and get a temporary URL back
+    # fal.ai needs a URL — we upload the bytes and get a temporary URL back.
+    # Run in a thread pool so the blocking network call doesn't stall
+    # the FastAPI event loop.
     try:
-        human_image_url = upload_image_to_fal(file_bytes, filename)
+        loop = asyncio.get_event_loop()
+        human_image_url = await loop.run_in_executor(
+            None, upload_image_to_fal, file_bytes, filename
+        )
     except ImageValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
